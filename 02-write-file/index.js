@@ -5,7 +5,7 @@ const file = path.join(__dirname, 'text.txt');
 const finish = () => {
   stdout.write('Вы были великолепны! Ваша мудрость запечатлена в строках файла text.txt и останется с потомками навеки.');
   exit();
-}
+};
 fs.access(file, err => {
   if (err) {
     fs.writeFile(
