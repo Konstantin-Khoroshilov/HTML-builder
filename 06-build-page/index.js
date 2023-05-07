@@ -33,19 +33,13 @@ const build = () => {
   readFile(path.resolve(__dirname, 'template.html'), 'utf-8', (err, data) => {
     if (err) throw err;
     let template = data.toString();
-    readFile(path.resolve(__dirname, 'components', 'articles.html'), 'utf-8', (err, data) => {
+    readdir(path.resolve(__dirname, 'components'), { withFileTypes: true }, (err, files) => {
       if (err) throw err;
-      const articles = data.toString();
-      readFile(path.resolve(__dirname, 'components', 'footer.html'), 'utf-8', (err, data) => {
-        if (err) throw err;
-        const footer = data.toString();
-        readFile(path.resolve(__dirname, 'components', 'header.html'), 'utf-8', (err, data) => {
+      files.forEach(file => {
+        readFile(path.resolve(__dirname, 'components', file.name), 'utf-8', (err, data) => {
           if (err) throw err;
-          const header = data.toString();
-          template = template.replace('{{header}}', header);
-          template = template.replace('{{footer}}', footer);
-          template = template.replace('{{articles}}', articles);
-          writeFile(htmlDestinationDir, template, (err) => { if (err) { throw err } });
+          template = template.replace(`{{${file.name.split('.')[0]}}}`, data.toString());
+          writeFile(htmlDestinationDir, template, (err) => { if (err) { throw err; } });
         });
       });
     });
@@ -62,7 +56,7 @@ const build = () => {
           if (fileExt === '.css') {
             readFile(path.resolve(cssSourceDir, file.name), 'utf-8', (err, data) => {
               if (err) throw err;
-              appendFile(cssDestinationDir, data.toString(), err => {
+              appendFile(cssDestinationDir, data.toString() + '\n', err => {
                 if (err) throw err;
               });
             });
@@ -88,7 +82,7 @@ const build = () => {
       copyDir(assetsSourceDir, assetsDestinationDir);
     }
   });
-}
+};
 access(destinationDir, err => {
   if (!err) {
     rm(destinationDir,
