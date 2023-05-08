@@ -1,7 +1,9 @@
 const { readdir, copyFile, access, writeFile, readFile, appendFile, mkdir, rm } = require('fs/promises');
 const path = require('path');
 const cssSourceDir = path.resolve(__dirname, 'styles');
+const htmlSourseDir = path.resolve(__dirname, 'components');
 const assetsSourceDir = path.resolve(__dirname, 'assets');
+const htmlTemplateDir = path.resolve(__dirname, 'template.html');
 const destinationDir = path.resolve(__dirname, 'project-dist');
 const htmlDestinationDir = path.resolve(destinationDir, 'index.html');
 const cssDestinationDir = path.resolve(destinationDir, 'style.css');
@@ -23,10 +25,10 @@ const copyDir = (sourceDir, destinationDir) => {
 };
 const build = async () => {
   //заполнение html файла
-  let template = await readFile(path.resolve(__dirname, 'template.html'), 'utf-8');
-  const htmlComponents = await readdir(path.resolve(__dirname, 'components'), { withFileTypes: true });
+  let template = await readFile(htmlTemplateDir, 'utf-8');
+  const htmlComponents = await readdir(htmlSourseDir, { withFileTypes: true });
   for (const component of htmlComponents) {
-    const contents = await readFile(path.resolve(__dirname, 'components', component.name), 'utf8');
+    const contents = await readFile(path.resolve(htmlSourseDir, component.name), 'utf8');
     template = template.replace(`{{${component.name.split('.')[0]}}}`, contents);
     await writeFile(htmlDestinationDir, template);
   }
@@ -55,7 +57,7 @@ const build = async () => {
     await mkdir(assetsDestinationDir);
     copyDir(assetsSourceDir, assetsDestinationDir);
   }
-}
+};
 const createDist = async () => {
   //сборка проекта
   try {
@@ -69,6 +71,6 @@ const createDist = async () => {
     await mkdir(destinationDir);
     build();
   }
-}
+};
 
 createDist();
