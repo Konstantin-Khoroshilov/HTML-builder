@@ -1,42 +1,30 @@
-const { readdir, mkdir, rm, access, copyFile } = require('fs');
+const { readdir, mkdir, rm, access, copyFile } = require('fs/promises');
 const path = require('path');
 const sourceDir = path.resolve(__dirname, 'files');
 const destinationDir = path.resolve(__dirname, 'files-copy');
-const copyDir = (sourceDir, destinationDir) => {
-  try {
-    readdir(sourceDir, { withFileTypes: true }, (err, files) => {
-      if (!err) {
-        files.forEach(file => {
-          if (file.isDirectory()) {
-            mkdir(path.resolve(destinationDir, file.name), (err) => { if (err) { throw err; } });
-            copyDir(path.resolve(sourceDir, file.name), path.resolve(destinationDir, file.name));
-          }
-          if (file.isFile()) {
-            copyFile(path.resolve(sourceDir, file.name), path.resolve(destinationDir, file.name), err => {
-              if (err) throw err;
-            });
-          }
-        });
-      } else {
-        throw err;
-      }
-    });
-  } catch (err) {
-    console.log(err);
+
+const copyDir = async (sourceDir, destinationDir) => {
+  const files = await readdir(sourceDir, { withFileTypes: true });
+  for (const file of files) {
+    if (file.isDirectory()) {
+      await mkdir(path.resolve(destinationDir, file.name));
+      await copyDir(path.resolve(sourceDir, file.name), path.resolve(destinationDir, file.name));
+    }
+    if (file.isFile()) {
+      await copyFile(path.resolve(sourceDir, file.name), path.resolve(destinationDir, file.name));
+    }
   }
 };
-access(destinationDir, err => {
-  if (!err) {
-    rm(destinationDir,
-      { recursive: true },
-      err => {
-        if (err) { throw err; }
-        mkdir(destinationDir, (err) => { if (err) { throw err; } });
-        copyDir(sourceDir, destinationDir);
-      }
-    );
-  } else {
-    mkdir(destinationDir, (err) => { if (err) { throw err; } });
-    copyDir(sourceDir, destinationDir);
+
+const createDir = async (destination) => {
+  try {
+    await access(destination);
+    await rm(destination, { recursive: true });
+    await mkdir(destination);
+  } catch {
+    await mkdir(destination);
   }
-});
+};
+
+createDir(destinationDir);
+copyDir(sourceDir, destinationDir);

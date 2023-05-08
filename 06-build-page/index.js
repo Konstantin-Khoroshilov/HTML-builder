@@ -8,6 +8,7 @@ const destinationDir = path.resolve(__dirname, 'project-dist');
 const htmlDestinationDir = path.resolve(destinationDir, 'index.html');
 const cssDestinationDir = path.resolve(destinationDir, 'style.css');
 const assetsDestinationDir = path.resolve(destinationDir, 'assets');
+
 const copyDir = (sourceDir, destinationDir) => {
   readdir(sourceDir, { withFileTypes: true })
     .then(files => {
@@ -23,16 +24,24 @@ const copyDir = (sourceDir, destinationDir) => {
     })
     .catch(err => console.log(err));
 };
-const build = async () => {
-  //заполнение html файла
+
+const createHtmlFromTemplate = async (htmlTemplateDir, htmlSourseDir, htmlDestinationDir) => {
   let template = await readFile(htmlTemplateDir, 'utf-8');
   const htmlComponents = await readdir(htmlSourseDir, { withFileTypes: true });
   for (const component of htmlComponents) {
-    const contents = await readFile(path.resolve(htmlSourseDir, component.name), 'utf8');
-    template = template.replace(`{{${component.name.split('.')[0]}}}`, contents);
-    await writeFile(htmlDestinationDir, template);
+    if (component.isFile()) {
+      const fileNameWExt = path.resolve(htmlSourseDir, `${component.name}`);
+      const fileExt = path.extname(fileNameWExt);
+      if (fileExt === '.html') {
+        const contents = await readFile(path.resolve(htmlSourseDir, component.name), 'utf8');
+        template = template.replace(`{{${component.name.split('.')[0]}}}`, contents);
+        await writeFile(htmlDestinationDir, template);
+      }
+    }
   }
-  //заполнение css файла
+};
+
+const createCssBundle = async (cssSourceDir, cssDestinationDir) => {
   const cssComponents = await readdir(cssSourceDir, { withFileTypes: true });
   await writeFile(cssDestinationDir, '');
   for (const component of cssComponents) {
@@ -45,32 +54,24 @@ const build = async () => {
       }
     }
   }
-  //копирование папки assets
-  try {
-    //если папка уже есть, удалить её, создать заново и скопировать в неё содержимое assets
-    await access(assetsDestinationDir);
-    await rm(assetsDestinationDir, { recursive: true });
-    await mkdir(assetsDestinationDir);
-    copyDir(assetsSourceDir, assetsDestinationDir);
-  } catch {
-    //папки нет: создать её и скопировать содержимое assets
-    await mkdir(assetsDestinationDir);
-    copyDir(assetsSourceDir, assetsDestinationDir);
-  }
 };
-const createDist = async () => {
-  //сборка проекта
+
+const createDir = async (destination) => {
   try {
-    //если папка со сборкой существует - удаляем её, создаём заново, а затем собираем проект
-    await access(destinationDir);
-    await rm(destinationDir, { recursive: true });
-    await mkdir(destinationDir);
-    build();
+    await access(destination);
+    await rm(destination, { recursive: true });
+    await mkdir(destination);
   } catch {
-    //папки со сборкой проекта нет: создаём папку, потом собираем проект
-    await mkdir(destinationDir);
-    build();
+    await mkdir(destination);
   }
 };
 
-createDist();
+const buildProject = async () => {
+  await createDir(destinationDir);
+  await createHtmlFromTemplate(htmlTemplateDir, htmlSourseDir, htmlDestinationDir);
+  await createCssBundle(cssSourceDir, cssDestinationDir);
+  await createDir(assetsDestinationDir);
+  copyDir(assetsSourceDir, assetsDestinationDir);
+};
+
+buildProject();
