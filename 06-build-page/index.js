@@ -1,4 +1,4 @@
-const { readdir, copyFile, access, writeFile, readFile, appendFile, mkdir, rm } = require('fs');
+const { readdir, copyFile, access, writeFile, readFile, appendFile, mkdir, rm } = require('fs/promises');
 const path = require('path');
 const cssSourceDir = path.resolve(__dirname, 'styles');
 const assetsSourceDir = path.resolve(__dirname, 'assets');
@@ -7,94 +7,68 @@ const htmlDestinationDir = path.resolve(destinationDir, 'index.html');
 const cssDestinationDir = path.resolve(destinationDir, 'style.css');
 const assetsDestinationDir = path.resolve(destinationDir, 'assets');
 const copyDir = (sourceDir, destinationDir) => {
-  try {
-    readdir(sourceDir, { withFileTypes: true }, (err, files) => {
-      if (!err) {
-        files.forEach(file => {
-          if (file.isDirectory()) {
-            mkdir(path.resolve(destinationDir, file.name), (err) => { if (err) { throw err; } });
-            copyDir(path.resolve(sourceDir, file.name), path.resolve(destinationDir, file.name));
-          }
-          if (file.isFile()) {
-            copyFile(path.resolve(sourceDir, file.name), path.resolve(destinationDir, file.name), err => {
-              if (err) throw err;
-            });
-          }
-        });
-      } else {
-        throw err;
-      }
-    });
-  } catch (err) {
-    console.log(err);
-  }
-};
-const build = () => {
-  readFile(path.resolve(__dirname, 'template.html'), 'utf-8', (err, data) => {
-    if (err) throw err;
-    let template = data.toString();
-    readdir(path.resolve(__dirname, 'components'), { withFileTypes: true }, (err, files) => {
-      if (err) throw err;
+  readdir(sourceDir, { withFileTypes: true })
+    .then(files => {
       files.forEach(file => {
-        readFile(path.resolve(__dirname, 'components', file.name), 'utf-8', (err, data) => {
-          if (err) throw err;
-          template = template.replace(`{{${file.name.split('.')[0]}}}`, data.toString());
-          writeFile(htmlDestinationDir, template, (err) => { if (err) { throw err; } });
-        });
-      });
-    });
-  });
-  readdir(cssSourceDir, { withFileTypes: true }, (err, files) => {
-    if (!err) {
-      writeFile(cssDestinationDir, '', err => {
-        if (err) throw err;
-      });
-      files.forEach(file => {
+        if (file.isDirectory()) {
+          mkdir(path.resolve(destinationDir, file.name)).catch(err => console.log(err));
+          copyDir(path.resolve(sourceDir, file.name), path.resolve(destinationDir, file.name));
+        }
         if (file.isFile()) {
-          const fileNameWExt = path.resolve(cssSourceDir, `${file.name}`);
-          const fileExt = path.extname(fileNameWExt);
-          if (fileExt === '.css') {
-            readFile(path.resolve(cssSourceDir, file.name), 'utf-8', (err, data) => {
-              if (err) throw err;
-              appendFile(cssDestinationDir, data.toString() + '\n', err => {
-                if (err) throw err;
-              });
-            });
-          }
+          copyFile(path.resolve(sourceDir, file.name), path.resolve(destinationDir, file.name)).catch(err => console.log(err));
         }
       });
-    } else {
-      throw err;
-    }
-  });
-  access(assetsDestinationDir, err => {
-    if (!err) {
-      rm(assetsDestinationDir,
-        { recursive: true },
-        err => {
-          if (err) { throw err; }
-          mkdir(assetsDestinationDir, (err) => { if (err) { throw err; } });
-          copyDir(assetsSourceDir, assetsDestinationDir);
-        }
-      );
-    } else {
-      mkdir(assetsDestinationDir, (err) => { if (err) { throw err; } });
-      copyDir(assetsSourceDir, assetsDestinationDir);
-    }
-  });
+    })
+    .catch(err => console.log(err));
 };
-access(destinationDir, err => {
-  if (!err) {
-    rm(destinationDir,
-      { recursive: true },
-      err => {
-        if (err) { throw err; }
-        mkdir(destinationDir, (err) => { if (err) { throw err; } });
-        build();
+const build = async () => {
+  //заполнение html файла
+  let template = await readFile(path.resolve(__dirname, 'template.html'), 'utf-8');
+  const htmlComponents = await readdir(path.resolve(__dirname, 'components'), { withFileTypes: true });
+  for (const component of htmlComponents) {
+    const contents = await readFile(path.resolve(__dirname, 'components', component.name), 'utf8');
+    template = template.replace(`{{${component.name.split('.')[0]}}}`, contents);
+    await writeFile(htmlDestinationDir, template);
+  }
+  //заполнение css файла
+  const cssComponents = await readdir(cssSourceDir, { withFileTypes: true });
+  await writeFile(cssDestinationDir, '');
+  for (const component of cssComponents) {
+    if (component.isFile()) {
+      const fileNameWExt = path.resolve(cssSourceDir, `${component.name}`);
+      const fileExt = path.extname(fileNameWExt);
+      if (fileExt === '.css') {
+        const cssContent = await readFile(path.resolve(cssSourceDir, component.name), 'utf-8');
+        await appendFile(cssDestinationDir, cssContent + '\n');
       }
-    );
-  } else {
-    mkdir(destinationDir, (err) => { if (err) { throw err; } });
+    }
+  }
+  //копирование папки assets
+  try {
+    //если папка уже есть, удалить её, создать заново и скопировать в неё содержимое assets
+    await access(assetsDestinationDir);
+    await rm(assetsDestinationDir, { recursive: true });
+    await mkdir(assetsDestinationDir);
+    copyDir(assetsSourceDir, assetsDestinationDir);
+  } catch {
+    //папки нет: создать её и скопировать содержимое assets
+    await mkdir(assetsDestinationDir);
+    copyDir(assetsSourceDir, assetsDestinationDir);
+  }
+}
+const createDist = async () => {
+  //сборка проекта
+  try {
+    //если папка со сборкой существует - удаляем её, создаём заново, а затем собираем проект
+    await access(destinationDir);
+    await rm(destinationDir, { recursive: true });
+    await mkdir(destinationDir);
+    build();
+  } catch {
+    //папки со сборкой проекта нет: создаём папку, потом собираем проект
+    await mkdir(destinationDir);
     build();
   }
-});
+}
+
+createDist();
