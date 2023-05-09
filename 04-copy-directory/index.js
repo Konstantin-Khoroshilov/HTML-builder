@@ -4,6 +4,13 @@ const sourceDir = path.resolve(__dirname, 'files');
 const destinationDir = path.resolve(__dirname, 'files-copy');
 
 const copyDir = async (sourceDir, destinationDir) => {
+  try {
+    await access(destinationDir);
+    await rm(destinationDir, { recursive: true });
+    await mkdir(destinationDir);
+  } catch {
+    await mkdir(destinationDir);
+  }
   const files = await readdir(sourceDir, { withFileTypes: true });
   for (const file of files) {
     if (file.isDirectory()) {
@@ -16,15 +23,4 @@ const copyDir = async (sourceDir, destinationDir) => {
   }
 };
 
-const createDir = async (destination) => {
-  try {
-    await access(destination);
-    await rm(destination, { recursive: true });
-    await mkdir(destination);
-  } catch {
-    await mkdir(destination);
-  }
-};
-
-createDir(destinationDir);
 copyDir(sourceDir, destinationDir);

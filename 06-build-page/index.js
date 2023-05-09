@@ -9,7 +9,18 @@ const htmlDestinationDir = path.resolve(destinationDir, 'index.html');
 const cssDestinationDir = path.resolve(destinationDir, 'style.css');
 const assetsDestinationDir = path.resolve(destinationDir, 'assets');
 
+const createDir = async (destination) => {
+  try {
+    await access(destination);
+    await rm(destination, { recursive: true });
+    await mkdir(destination);
+  } catch {
+    await mkdir(destination);
+  }
+};
+
 const copyDir = async (sourceDir, destinationDir) => {
+  await createDir(destinationDir);
   const files = await readdir(sourceDir, { withFileTypes: true });
   for (const file of files) {
     if (file.isDirectory()) {
@@ -50,16 +61,6 @@ const createCssBundle = async (cssSourceDir, cssDestinationDir) => {
     }
   }
   await writeFile(cssDestinationDir, cssContent);
-};
-
-const createDir = async (destination) => {
-  try {
-    await access(destination);
-    await rm(destination, { recursive: true });
-    await mkdir(destination);
-  } catch {
-    await mkdir(destination);
-  }
 };
 
 const buildProject = async () => {
