@@ -24,7 +24,6 @@ const copyDir = async (sourceDir, destinationDir) => {
   const files = await readdir(sourceDir, { withFileTypes: true });
   for (const file of files) {
     if (file.isDirectory()) {
-      await mkdir(path.resolve(destinationDir, file.name));
       await copyDir(path.resolve(sourceDir, file.name), path.resolve(destinationDir, file.name));
     }
     if (file.isFile()) {
